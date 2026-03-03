@@ -1,10 +1,9 @@
 // wrapper function that is going to be used everywhere.
 const asyncHandler = (requestHandler) => {
-    return (req,res,next) => {
+    return(req,res,next) => {
         Promise.resolve(requestHandler(req,res,next)).
         catch((err) => next(err));
     }
-
 }
 
 
