@@ -6,6 +6,9 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 
 // User must be imported like this since it was not a defualt export,but a Named Export. We would not need {} and we could name the User to anything else, in case of a default export.
 
+//Postman => It lets you send HTTP requests to your backend without needing a frontend.
+// Used mainly for testing backend APIs during development. 
+// POST /api/users/register ← API and POST/register is the API endpoint.
 
 
 // asyncHandler is a Wrapper. it wraps async functions so that we dont have to apply try,catch each time.
@@ -21,8 +24,22 @@ const registerUser = asyncHandler( async(req,res) => {
     // return response
 
     // getting details
+    
     const {fullName,username,email,password} = req.body;
-    console.log("email", email)
+    /*
+    req.body contains data sent in the request body by the client (usually from a form or JSON).
+    {
+     fullName: 'bhanuSingh',
+     username: 'b4_bhanu',
+     email: 'bb2@gmail.com',
+     password: 'bb123'
+    }
+
+    req.body  → text fields
+    req.files → uploaded files
+    */
+    // console.log(req.body);
+    // console.log("email", email)
     
     //validation
     /*
@@ -54,13 +71,27 @@ const registerUser = asyncHandler( async(req,res) => {
 
     //check for images or avatar
 
-    const avatarLocalPath = req.files?.avatar[0]?.path
-    console.log(req.files);
-    const coverImageLocalPath = req.files?.coverImage?.[0]?.path;
+    const avatarLocalPath = req.files?.avatar?.[0]?.path
+    /*
+    avatar → array
+    avatar[0] → first file object
+    avatar[0].fieldname → "avatar"
+   */
+    // req.files comes from Multer. It contains info about uploaded files.
+    // console.log(req.files); // at the end
+    // console.log(req.files.avatar[0]); // to print the full object including path
     // here, the name avatar is generic, it could have been anything else.
     // req.body is available by default from express, multer gives us access to req.files
     // localPath because its currently on our server, and has not been sent to cloudinary
 
+    const coverImageLocalPath = req.files?.coverImage?.[0]?.path;
+
+    // without chaining
+    // let coverImageLocalPath;
+    // if(req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0){
+    //     coverImageLocalPath = req.files.coverImage[0].path;
+    // }
+    
     if(!avatarLocalPath){
         throw new ApiError(400, "Avatar file is required")
     }
@@ -107,12 +138,34 @@ const registerUser = asyncHandler( async(req,res) => {
     new ApiResponse(200, createdUser, "User registered successfully")
    )
 
-     
-
-
+   
 })
 
 export {registerUser};
+
+
+
+/*
+console.log(req.files)
+req.files is usually an object containing arrays of file objects.
+[Object: null prototype] {
+  avatar: [
+    {
+      fieldname: 'avatar',
+      originalname: 'sidPhoto.jpeg',
+      encoding: '7bit',
+      mimetype: 'image/jpeg',
+      destination: './public/temp',
+      filename: 'sidPhoto.jpeg',
+    }
+  ]
+}
+  // there is no explicit key named "Path", but we can access it since Path = destination + fileName
+// there is no coverImage here, since i did not send it from postman.
+*/
+
+ 
+
 
 
 

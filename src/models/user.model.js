@@ -53,11 +53,11 @@ const userSchema = new Schema(
 );
 
 
-userSchema.pre("save", async function(next){
+userSchema.pre("save", async function(){
     // use function here, not arrow functions , since arrows do not have "this" keyword
     if(!this.isModified("password")) return next();
     this.password =  await bcrypt.hash(this.password,10);
-    next();
+    
 })
 
 userSchema.methods.isPasswordCorrect = async function(password){
