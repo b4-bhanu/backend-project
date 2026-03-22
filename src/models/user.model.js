@@ -65,6 +65,12 @@ userSchema.methods.isPasswordCorrect = async function(password){
 }
 
 
+
+//Access Tokens and Refresh Tokens are used in authentication systems (especially with JWT) to keep users logged in securely without asking them to log in again and again. (kind of, like temporary passes)
+
+//An Access Token is a short-lived token used to access protected routes in your API.
+// A Refresh Token is used to generate a new Access Token when the old one expires.
+
 userSchema.methods.generateAccessToken = function(){
     return jwt.sign(
         {

@@ -4,7 +4,29 @@ import {User} from "../models/user.model.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
 
-// User must be imported like this since it was not a defualt export,but a Named Export. We would not need {} and we could name the User to anything else, in case of a default export.
+
+// here we don't use asyncHandler Wrapper because we are not handling a web request, this is an internal task.
+const generateAccessAndRefreshTokens = async(useId) => {
+    try {
+        const user = await User.findById(userId);
+
+        const accessToken = user.generateAccessToken()
+        const refreshToken = user.generateRefreshToken()
+
+        //we save refresh token to avoid needing password again and again.
+        user.refreshToken = refreshToken;
+
+        //using save kicks-in mongoose model, where, in our case , password is a required field,so to avoid that, we use "validateBeforeSave" field.
+        await user.save({validateBeforeSave:false})
+
+        return {accessToken,refreshToken};
+
+    } catch (error) {
+        throw new ApiError(500, "Something went wrong while generating refresh and access token");
+    }
+}
+
+// User must be imported like this since it was not a default export,but a Named Export. We would not need {} and we could name the User to anything else, in case of a default export.
 
 //Postman => It lets you send HTTP requests to your backend without needing a frontend.
 // Used mainly for testing backend APIs during development. 
@@ -12,6 +34,8 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 
 
 // asyncHandler is a Wrapper. it wraps async functions so that we dont have to apply try,catch each time.
+
+//register user
 const registerUser = asyncHandler( async(req,res) => {
     // get user details from frontend
     // validation => see if user details are all there, in the correct format.
@@ -141,7 +165,124 @@ const registerUser = asyncHandler( async(req,res) => {
    
 })
 
-export {registerUser};
+//login user => access and refresh token
+const loginUser = asyncHandler( async(req,res) => {
+    // Steps Involved:
+    // take the data from request body
+    // decide whether you want username or email, or maybe both as entry request.
+    // find the user
+    // check password 
+    // generate access and refresh token
+    // return cookie
+
+    const {email, username, password} = req.body;
+
+    if(!username || !email){
+        throw new ApiError(400, "username or email is required");
+    }
+
+    const user = await User.findOne({
+        $or : [{username},{email}]
+    })
+
+    if(!user){
+        throw new ApiError(404, "User does not exist");
+    }
+
+    // while checking password, we can't use "User" with a capital 'u' while checking our methods like we do in User.findOne because that user is created by mongo and we are going to use our own methods. And for that purpose, 'user' does the job. so ,user.isPasswordCorrect, not 'User'.
+
+    const isPasswordValid = await user.isPasswordCorrect(password);
+
+    if(!isPasswordValid){
+        throw new ApiError(401, "Invalid User credentials");
+    }
+
+
+    // since we have reached here, now we can proceed to generate access and refresh tokens, and since we are going to do it many times, let's create a method for it.
+
+    // we add await here, since there are some operations in the function which might require  some extra time.
+    const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(user._id);
+
+    // we are making a second query to database, so decide if you this is a heavy operation. you can simply save the user by making changes to it.
+
+    // 1. second query
+    const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
+
+    // 2. making changes to existing user
+    // user.password = undefined;
+    // user.refreshToken = undefined;
+    // const loggedInUser = user;
+
+     
+    // after applying these options, cookies are server-modifiable only, you cannot make changes in it from frontend.
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+
+    //A cookie is a small piece of data that a server stores in the user’s browser.
+    //Your server tells the browser
+    // Store accessToken
+    // Store refreshToken
+    // The browser saves them as cookies.
+    
+    return res
+    .status(200)
+    .cookie("accessToken", accessToken,options)
+    .cookie("refreshToken", refreshToken,options)
+    .json(
+        new ApiResponse(
+            200,
+            {
+                user: loggedInUser,accessToken, refreshToken
+            },
+            "User logged in successfully"
+        )
+    )
+
+})
+
+const logoutUser = asyncHandler(async(req,res) => {
+
+    // here we have req.user along with req.body, because verifyJwt middleware runs first in which we attached this user, (req.user = user).
+    // that's why, we can access req.user directly here
+
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+                refreshToken: undefined
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    const options = {
+        //  httpOnly ensures JS cannot access our cookie, so document.cookie can't access it.
+        httpOnly: true,
+        // secure ensures our cookie is only sent over HTTPS
+        secure: true
+    }
+
+    return res
+    .status(200)
+    .clearCookie("accessToken",options)
+    .clearCookie("refreshToken",options)
+    .json(new ApiResponse(200, {}, "User logged out"))
+
+    
+})
+
+ 
+
+
+export {registerUser,
+        loginUser,
+        logoutUser
+};
 
 
 
